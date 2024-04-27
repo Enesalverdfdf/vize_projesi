@@ -1,30 +1,27 @@
+ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'controller/user_controller.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'model/user_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-  // plugin'in başlatılması
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  final InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  await EasyLocalization.ensureInitialized();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
   ));
   runApp(
-    ProviderScope(
-      child: MyApp(),
+    EasyLocalization(
+      supportedLocales: [Locale('en', 'US'), Locale('tr', 'TR')],
+      path: 'assets/translations', // çeviri dosyalarının bulunduğu klasör
+      fallbackLocale: Locale('en', 'US'), // varsayılan dil
+      child: ProviderScope(
+        child: MyApp(),
+      ),
     ),
   );
 }
@@ -33,20 +30,10 @@ class MyApp extends StatefulWidget {
   @override
   _MyAppState createState() => _MyAppState();
 
-  static bool changeLanguage(BuildContext context, Locale newLocale) {
-    _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
-    state.setState(() {
-      state._locale = newLocale;
-      state._themeMode =
-          newLocale.languageCode == 'en' ? ThemeMode.light : ThemeMode.dark;
-    });
-    return true;
-  }
 }
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
-  Locale _locale = const Locale('en', 'US'); // Varsayılan dil ayarı
 
   void _toggleTheme() {
     setState(() {
@@ -55,31 +42,35 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      locale: _locale, // MaterialApp içinde dil ayarı
-      localizationsDelegates: [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ],
-      supportedLocales: [
-        Locale('en', 'US'),
-        Locale('tr', 'TR'),
-      ],
       themeMode: _themeMode,
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
       darkTheme: ThemeData.dark(),
       theme: ThemeData.light(),
-      home: HomePage(toggleTheme: _toggleTheme),
+      home: HomePage(toggleTheme: _toggleTheme,),
     );
   }
 }
 
 class HomePage extends ConsumerWidget {
   final VoidCallback toggleTheme;
+   void _toggleLanguage(BuildContext context){
+    if(context.locale == Locale('en', 'US')){
+     context.setLocale(Locale('tr', 'TR'));
+    }
+    else{
+      context.setLocale(Locale('en', 'US'));
+    }
+  }
 
-  HomePage({Key? key, required this.toggleTheme}) : super(key: key);
+  HomePage({Key? key, required this.toggleTheme,}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,7 +82,7 @@ class HomePage extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           centerTitle: true,
-          title: const Text("UserList"),
+          title: Text('User List'.tr()), 
           actions: [
             IconButton(
               onPressed: toggleTheme,
@@ -99,15 +90,15 @@ class HomePage extends ConsumerWidget {
             ),
             IconButton(
               onPressed: () {
-                MyApp.changeLanguage(context, const Locale('en', 'US'));
+                _toggleLanguage(context);
               },
               icon: const Icon(Icons.language),
             ),
           ],
-          bottom: const TabBar(
+          bottom:  TabBar(
             tabs: [
-              Tab(text: 'All Users'),
-              Tab(text: 'Saved Users'),
+              Tab(text: 'All Users'.tr()),
+              Tab(text: 'Saved Users'.tr()),
             ],
           ),
         ),
@@ -204,7 +195,6 @@ class HomePage extends ConsumerWidget {
       },
     );
   }
-
   Future<List<UserModel>> _getSavedUsers(BuildContext context) async {
     final container = ProviderContainer();
     final allUsers = await container.read(UserController.future);
@@ -235,30 +225,9 @@ class HomePage extends ConsumerWidget {
     if (!savedUsers.contains(user.toJson().toString())) {
       savedUsers.add(user.toJson().toString());
       await prefs.setStringList('saved_users', savedUsers);
-
-      // Kaydedilen kullanıcıya bildirim göster
-      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-          FlutterLocalNotificationsPlugin();
-      const AndroidNotificationDetails androidPlatformChannelSpecifics =
-          AndroidNotificationDetails(
-        'your channel id',
-        'your channel name',
-        importance: Importance.max,
-        priority: Priority.high,
-      );
-      const NotificationDetails platformChannelSpecifics =
-          NotificationDetails(android: androidPlatformChannelSpecifics);
-      await flutterLocalNotificationsPlugin.show(
-        0,
-        'User Saved Successfully !',
-        '${user.firstName} ${user.lastName}',
-        platformChannelSpecifics,
-      );
-
-      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${user.firstName} ${user.lastName} saved.'),
+          content: Text("${user.firstName} ${user.lastName} Saved"),
         ),
       );
     } else {
